@@ -12,13 +12,15 @@ from faker import Faker
 @dataclass
 class GraphVertex:
     vertex_id: int
-    vertex_type: str
+    vertex_type: Dict[str, Any]
     is_remoted: bool = False
     inputs: List[Tuple[int, int]] = None  # List of (predecessor_vertex_id, predecessor_output_index)
 
     def __post_init__(self):
         if self.inputs is None:
             self.inputs = []
+        if self.vertex_type is None:
+            self.vertex_type = {}
 
 class MockGraphEventGenerator:
     def __init__(self):
@@ -40,7 +42,7 @@ class MockGraphEventGenerator:
         """Generate a graph key dictionary"""
         return {
             "uuid": graph_uuid,
-            "client_ref": client_ref,
+            "ref": client_ref,
             "batch_uuid": batch_uuid
         }
     
@@ -48,9 +50,9 @@ class MockGraphEventGenerator:
         """Create a base event key structure"""
         graph_key = self.generate_graph_key(graph_uuid, client_ref, batch_uuid)
         return {
-            "instant": {"espochMicrosecondsUTC": timestamp},
-            "calcGraphCalculationKey": self.generate_graph_key(graph_uuid, client_ref, batch_uuid),
-            "calcStepCalculationKey": {"vertexId": vertex_id, "version": 0}
+            "timestamp": timestamp,
+            "graph_key": self.generate_graph_key(graph_uuid, client_ref, batch_uuid),
+            "vertex_key": {"vertex_id": vertex_id, "version": 0}
         }
 
     def generate_payload_type(self, type_name: str, namespace: str = "test") -> Dict[str, str]:
@@ -65,6 +67,24 @@ class MockGraphEventGenerator:
             "size": None,
             "uidCalculationDuration": None,
             "serializationDuration": None,
+            "variant": {
+                "type": "HANDLE"
+            },
+            "toString": self.fake.text(max_nb_chars=20) #  TODO: use predefined string for the toString values
+        }
+    
+    def generate_vertex_type(self, payload_type: Dict[str, str]) -> Dict[str, Any]:
+        """Each vertex and edge encapsulate an instance of a variant type and this method generates the variant type details"""
+        return {
+            # SHA-256 hash of the serialized instance of this variant type
+            "uid": None,
+            "type": payload_type,
+            "class": None,  # TODO: get random class name from predefined list
+            "size": None,  # TODO: generate random size
+            
+            "uid_generation_duration": None,
+            # time taken to serialize instance of this variant type
+            "serialization_duration": None,
             "variant": {
                 "type": "HANDLE"
             },
@@ -111,5 +131,19 @@ class MockGraphEventGenerator:
                     "instant": {"timestamp": timestamp},
                     "key": self.generate_graph_key(graph_uuid, client_ref, batch_uuid)
                 }
+            }
+        }
+    
+    def emit_vertex_accepted(self, graph_uuid: str, client_ref: str, batch_uuid: str, vertex: GraphVertex) -> Dict[str, Any]:
+        """Emit VERTEX_ACCEPTED event"""
+        timestamp = self.generate_timestamp()
+        return {
+            "type": "VERTEX_ACCEPTED",
+            "event": {
+                "key": self.create_base_key(graph_uuid, client_ref, batch_uuid, vertex.vertex_id, timestamp),
+                "type": vertex.vertex_type,
+                "remoted": vertex.is_remoted,
+                "remoted_by": "CLIENT_SUPPLIED_HOOK" if vertex.is_remoted else None,
+                "terminal_vertex": vertex.vertex_id == 0
             }
         }
