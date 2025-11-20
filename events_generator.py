@@ -68,5 +68,48 @@ class MockGraphEventGenerator:
             "variant": {
                 "type": "HANDLE"
             },
-            "toString": self.fake.text(max_nb_chars=20)
+            "toString": self.fake.text(max_nb_chars=20) #  TODO: use predefined string for the toString values
+        }
+    
+    def emit_graph_accepted(self, graph_uuid: str, client_ref: str, batch_uuid: str) -> Dict[str, Any]:
+        """Emit GRAPH_ACCEPTED event"""
+        timestamp = self.generate_timestamp()
+        return {
+            "type": "GRAPH_ACCEPTED",
+            "event": {
+                "key": {
+                    "instant": {"timestamp": timestamp},
+                    "key": self.generate_graph_key(graph_uuid, client_ref, batch_uuid)
+                },
+                "process": {
+                    "id": random.randint(1000, 9999),
+                    "memory": self.fake.random_number(digits=7),
+                    "user": self.fake.user_name(),
+                    "host": self.fake.hostname()
+                },
+                "engine": {
+                    "version": "1.0.0-mock",
+                },
+                "settings": {
+                    "features": [], #  TODO: get random feature flags from a predefined list
+                    "hooks": {
+                        "cache": "",
+                        "distribution": "",
+                        "expansion": ""
+                    }
+                }
+            }
+        }
+    
+    def emit_graph_completed(self, graph_uuid: str, client_ref: str, batch_uuid: str) -> Dict[str, Any]:
+        """Emit GRAPH_COMPLETED event"""
+        timestamp = self.generate_timestamp()
+        return {
+            "type": "GRAPH_COMPLETED",
+            "event": {
+                "key": {
+                    "instant": {"timestamp": timestamp},
+                    "key": self.generate_graph_key(graph_uuid, client_ref, batch_uuid)
+                }
+            }
         }
