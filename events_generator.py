@@ -8,6 +8,133 @@ from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import asdict, dataclass
 from collections import defaultdict
 from faker import Faker
+from secrets import token_hex
+
+vertex_functions: List[Tuple[str, str]] = [
+    ("ab.mean", "ab.mean calculates the average value across a dataset."),
+    ("xy.median", "xy.median returns the middle value in a sorted numeric list."),
+    ("qp.variance", "qp.variance measures how far values spread from the mean."),
+    ("rt.stddev", "rt.stddev computes the standard deviation of numeric data."),
+    ("kl.percentile", "kl.percentile retrieves the value at a given percentile rank."),
+    ("mv.covariance", "mv.covariance calculates how two variables change together."),
+    ("fd.correlation", "fd.correlation computes correlation strength between variables."),
+    ("sn.regression", "sn.regression fits a predictive model to input data."),
+    ("tj.quantile", "tj.quantile extracts a specific quantile from a dataset."),
+    ("uv.autocorrelation", "uv.autocorrelation measures correlation of a signal with itself over time."),
+    ("wx.normalization", "wx.normalization rescales numeric data to a standard range."),
+    ("ce.smoothing", "ce.smoothing applies a smoothing filter to reduce noise."),
+    ("hn.derivative", "hn.derivative estimates the rate of change in a sequence."),
+    ("ps.integral", "ps.integral approximates the area under a curve."),
+    ("gy.forecast", "gy.forecast predicts future values using historical trends."),
+    ("zb.clustering", "zb.clustering groups similar data points into clusters."),
+    ("lk.classification", "lk.classification assigns items to predefined categories."),
+    ("op.tokenization", "op.tokenization splits text into tokens or meaningful units."),
+    ("mq.vectorization", "mq.vectorization converts items into numerical vectors."),
+    ("nr.embedding", "nr.embedding produces dense representations of entities."),
+    ("vf.anomaly", "vf.anomaly detects outlier or abnormal data patterns."),
+    ("du.segmentation", "du.segmentation partitions data into logical segments."),
+    ("ke.transformation", "ke.transformation applies linear or nonlinear transformations."),
+    ("ri.scaling", "ri.scaling rescales features according to provided factors."),
+    ("zo.centering", "zo.centering shifts data so that its mean becomes zero."),
+    ("tp.resampling", "tp.resampling generates a new sample distribution."),
+    ("qs.interpolation", "qs.interpolation estimates missing values between data points."),
+    ("fj.decimation", "fj.decimation reduces sample rate by a fixed factor."),
+    ("aw.filtering", "aw.filtering removes unwanted components from signals."),
+    ("ic.denoise", "ic.denoise reduces noise using statistical heuristics."),
+    ("bd.decomposition", "bd.decomposition breaks a signal into component parts."),
+    ("uj.factorization", "uj.factorization decomposes matrices into multiplicative factors."),
+    ("eg.rotation", "eg.rotation rotates vectors or matrices in n-dimensional space."),
+    ("hy.translation", "hy.translation shifts values by a constant amount."),
+    ("cw.windowing", "cw.windowing applies a window function to a signal segment."),
+    ("mk.differencing", "mk.differencing computes differences to improve stationarity."),
+    ("sl.stationarity", "sl.stationarity evaluates whether a time series is stationary."),
+    ("pn.gradient", "pn.gradient computes gradient values across a function."),
+    ("ro.hessian", "ro.hessian calculates second-order partial derivatives."),
+    ("yl.curvefit", "yl.curvefit fits a custom curve to observed data."),
+    ("jx.approximation", "jx.approximation approximates complex functions numerically."),
+    ("vd.bias", "vd.bias computes the systematic offset of a model's predictions."),
+    ("sf.kurtosis", "sf.kurtosis measures tail extremity of a distribution."),
+    ("em.skewness", "em.skewness measures asymmetry of a distribution."),
+    ("ag.entropy", "ag.entropy quantifies data unpredictability."),
+    ("bh.contrast", "bh.contrast enhances or measures contrast in images or signals."),
+    ("ci.sharpen", "ci.sharpen enhances edges or details in data."),
+    ("dj.blurring", "dj.blurring reduces detail by convolving with a blur kernel."),
+    ("eq.histogram", "eq.histogram computes frequency distribution over value bins."),
+    ("fw.binomial", "fw.binomial generates binomial probability distributions."),
+    ("gx.poisson", "gx.poisson evaluates Poisson distribution probabilities."),
+    ("hv.gaussian", "hv.gaussian produces Gaussian distribution values."),
+    ("ij.uniform", "ij.uniform generates uniform distribution samples."),
+    ("jk.convergence", "jk.convergence checks whether an algorithm has converged."),
+    ("kl.divergence", "kl.divergence computes divergence between two distributions."),
+    ("lm.optimization", "lm.optimization finds optimal parameters for a function."),
+    ("mn.minimization", "mn.minimization solves for the minimum of a function."),
+    ("no.maximization", "no.maximization solves for the maximum of a function."),
+    ("op.search", "op.search performs heuristic or structured search operations."),
+    ("pq.aggregate", "pq.aggregate combines multiple values using a rule."),
+    ("qr.combine", "qr.combine merges datasets or sequences intelligently."),
+    ("rs.segment", "rs.segment divides data into logical segments."),
+    ("st.cluster", "st.cluster creates groups based on statistical similarity."),
+    ("tu.label", "tu.label assigns labels to data based on rules."),
+    ("uv.project", "uv.project projects data into a different subspace."),
+    ("vw.reduce", "vw.reduce compresses data dimensionality or complexity."),
+    ("wx.expand", "wx.expand increases dimensionality with derived features."),
+    ("xy.embed", "xy.embed maps items into a lower-dimensional embedding space."),
+    ("yz.encode", "yz.encode converts structures into encoded representations."),
+    ("za.decode", "za.decode reconstructs data from encoded representations."),
+    ("ab.balance", "ab.balance balances class or value distributions."),
+    ("bc.weight", "bc.weight applies weights to samples or features."),
+    ("cd.score", "cd.score computes evaluation metrics for models."),
+    ("de.rank", "de.rank assigns rank ordering to values."),
+    ("ef.normalize", "ef.normalize scales values to unit magnitude."),
+    ("fg.standardize", "fg.standardize converts data to zero mean and unit variance."),
+    ("gh.summarize", "gh.summarize produces statistical summaries of datasets."),
+    ("hi.evaluate", "hi.evaluate computes model performance metrics."),
+    ("ij.validate", "ij.validate validates a model using test or split data."),
+    ("jk.calibrate", "jk.calibrate adjusts a model to improve accuracy."),
+    ("kl.measure", "kl.measure calculates specific analytical measurements."),
+    ("lm.sample", "lm.sample draws samples from a dataset or distribution."),
+    ("mn.bootstrap", "mn.bootstrap generates bootstrap sample sets."),
+    ("no.shuffle", "no.shuffle randomly shuffles the ordering of items."),
+    ("op.partition", "op.partition splits data into defined partitions."),
+    ("pq.align", "pq.align aligns two datasets or sequences for comparison."),
+    ("qr.match", "qr.match finds best matches between datasets or patterns."),
+    ("rs.extract", "rs.extract pulls relevant features or components from data."),
+    ("st.compute", "st.compute performs a general analytical computation."),
+    ("tu.simulate", "tu.simulate simulates system behavior using a model."),
+    ("uv.model", "uv.model constructs a statistical or predictive model."),
+    ("vw.analyze", "vw.analyze analyzes datasets to extract insights."),
+    ("wx.optimize", "wx.optimize improves function performance or parameters."),
+    ("xy.interpolate", "xy.interpolate fills in missing values using interpolation."),
+    ("yz.transform", "yz.transform applies one or more transformations."),
+    ("za.integrate", "za.integrate numerically computes an integral over data.")
+]
+
+# Global Faker instance
+fake = Faker()
+
+@dataclass
+class Variant:
+    uid: str
+    type: str
+    size: int
+    to_string: str
+    serialization_duration: Optional[int] = None
+
+    @classmethod
+    def random_vertex_value(cls) -> "Variant":
+        uid = token_hex(11) # 11 bytes -> 22 hex chars
+        function = random.choice(vertex_functions)
+        type = function[0]
+        to_string = f"{function[1]}"
+        return cls(uid=uid, type=type, size=random.randint(100, 100_000), to_string=to_string)
+    
+    @classmethod
+    def random_edge_value(cls) -> "Variant":
+        uid = token_hex(11) # 11 bytes -> 22 hex chars
+        function = random.choice(vertex_functions)
+        type = function[0]
+        to_string = f"{function[1]}"
+        return cls(uid=uid, type=type, size=random.randint(1024, 104_857_600), to_string=to_string, serialization_duration=random.randint(1_000, 1_000_000))
 
 @dataclass
 class GraphKey:
@@ -31,9 +158,9 @@ class VertexKey:
 @dataclass
 class GraphVertex:
     vertex_id: int
-    vertex_type: Dict[str, Any]
+    value: Variant = None
     is_remoted: bool = False
-    inputs: List[Tuple[int, int]] = None  # List of (predecessor_vertex_id, predecessor_output_index)
+    inputs: List[Tuple[int, int]] = []  # List of (predecessor_vertex_id, predecessor_output_index)
 
     def __post_init__(self):
         if self.inputs is None:
@@ -53,14 +180,6 @@ class GraphEdge:
 class VariantType:
     name: str
     namespace: str = "test"
-
-@dataclass
-class Variant:
-    uid: Optional[str] = None
-    type: VariantType
-    class_name: Optional[str] = None
-    size: Optional[int] = None
-    to_string: Optional[str] = None
 
 class MockGraphEventGenerator:
     def __init__(self):
@@ -291,3 +410,94 @@ class MockGraphEventGenerator:
                 }
             }
         }
+    
+    def emit_edge_deserialization_accepted(self, graph_key: GraphKey, vertex_id: int, input_index: int, size: int) -> Tuple[Dict[str, Any], str]:
+        """Emit EDGE_DESERIALIZATION_ACCEPTED event"""
+        timestamp = self.generate_timestamp()
+        correlation_id = self.generate_uuid()
+        
+        key = self.create_base_key(graph_key, vertex_id, timestamp)
+        key.update({
+            "index": input_index,
+            "predecessor_key": asdict(VertexKey(-1, -1))
+        })
+        
+        return {
+            "type": "EDGE_DESERIALIZATION_ACCEPTED",
+            "event": {
+                "key": key,
+                "size": size,
+                "correlation_key": {
+                    "correlation_id": correlation_id
+                }
+            }
+        }, correlation_id
+    
+    def emit_edge_deserialization_completed(self, graph_key: GraphKey, vertex_id: int, input_index: int, correlation_id: str) -> Dict[str, Any]:
+        """Emit EDGE_DESERIALIZATION_COMPLETED event"""
+        timestamp = self.generate_timestamp()
+        
+        key = self.create_base_key(graph_key, vertex_id, timestamp)
+        key.update({
+            "index": input_index,
+            "predecessor_key": asdict(VertexKey(-1, -1))
+        })
+        
+        return {
+            "type": "EDGE_DESERIALIZATION_COMPLETED",
+            "event": {
+                "key": key,
+                "correlation_key": {
+                    "correlation_id": correlation_id
+                }
+            }
+        }
+    
+    def generate_mock_graph_execution(self, num_vertices: int = 5) -> List[Dict[str, Any]]:
+        """Generate a mock graph execution with events"""
+        graph_key = GraphKey.random()
+
+        events = []
+        vertices: List[GraphVertex] = []
+
+        # Emit GRAPH_ACCEPTED
+        events.append(self.emit_graph_accepted(graph_key))
+        
+        # Create graph topology
+        for i in range(num_vertices):
+            payload_type = self.generate_payload_type(f"Type{i}")
+            vertex_type = self.generate_vertex_type(payload_type)
+            vertex = GraphVertex(vertex_id=i, vertex_type=vertex_type, is_remoted=(i % 2 == 0))
+            inputs: List[Tuple[int, int]] = []
+            if i > 0:
+                num_inputs = random.randint(1, min(3, i))
+                for _ in range(num_inputs):
+                    pred_vertex = random.choice(vertices[:i])
+                    inputs.append((pred_vertex.vertex_id, 0))  # assuming single output index 0
+            
+            vertices.append(GraphVertex(vertex_id=i, vertex_type=vertex_type, inputs=inputs))
+            
+            # Emit VERTEX_ACCEPTED
+            events.append(self.emit_vertex_accepted(graph_key, vertex))
+            
+            # Emit VERTEX_SCHEDULED
+            events.append(self.emit_vertex_scheduled(graph_key, vertex))
+            
+            if vertex.is_remoted:
+                correlation_id = self.generate_uuid()
+                # Emit REMOTED_VERTEX_ACCEPTED
+                events.append(self.emit_remoted_vertex_accepted(graph_key, vertex, correlation_id))
+                
+                # Emit VERTEX_INVOKED
+                events.append(self.emit_vertex_invoked(graph_key, vertex, correlation_id))
+                
+                # Emit VERTEX_CALCULATED
+                events.append(self.emit_vertex_calculated(graph_key, vertex, correlation_id))
+            else:
+                # Emit VERTEX_CALCULATED
+                events.append(self.emit_vertex_calculated(graph_key, vertex, "local-correlation-id"))
+        
+        # Emit GRAPH_COMPLETED
+        events.append(self.emit_graph_completed(graph_key))
+        
+        return events
