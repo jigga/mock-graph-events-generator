@@ -10,7 +10,7 @@ from collections import defaultdict
 from faker import Faker
 from secrets import token_hex
 
-vertex_functions: List[Tuple[str, str]] = [
+vertex_values: List[Tuple[str, str]] = [
     ("ab.mean", "ab.mean calculates the average value across a dataset."),
     ("xy.median", "xy.median returns the middle value in a sorted numeric list."),
     ("qp.variance", "qp.variance measures how far values spread from the mean."),
@@ -108,6 +108,61 @@ vertex_functions: List[Tuple[str, str]] = [
     ("yz.transform", "yz.transform applies one or more transformations."),
     ("za.integrate", "za.integrate numerically computes an integral over data.")
 ]
+remoted_vertices: List[Tuple[str, str]] = random.sample(vertex_values, k=33)
+
+edge_values: List[Tuple[str, str]] = [
+    ("qx.MarketData", "<qx.MarketData instance>"),
+    ("lv.ExposureSet", "<lv.ExposureSet instance>"),
+    ("dr.RiskFactors", "<dr.RiskFactors instance>"),
+    ("pm.ScenarioConfig", "<pm.ScenarioConfig instance>"),
+    ("ht.PortfolioState", "<ht.PortfolioState instance>"),
+    ("cs.YieldCurve", "<cs.YieldCurve instance>"),
+    ("zn.VolSurface", "<zn.VolSurface instance>"),
+    ("rf.StressDefinition", "<rf.StressDefinition instance>"),
+    ("uk.CreditSpreadData", "<uk.CreditSpreadData instance>"),
+    ("bj.LiquidityMetrics", "<bj.LiquidityMetrics instance>"),
+    ("wa.TradeSet", "<wa.TradeSet instance>"),
+    ("mn.PositionLimits", "<mn.PositionLimits instance>"),
+    ("ty.BacktestParameters", "<ty.BacktestParameters instance>"),
+    ("so.OptimizationConfig", "<so.OptimizationConfig instance>"),
+    ("ae.ForwardCurve", "<ae.ForwardCurve instance>"),
+    ("qh.HistoricalPrices", "<qh.HistoricalPrices instance>"),
+    ("mv.GreekResults", "<mv.GreekResults instance>"),
+    ("xr.PricingContext", "<xr.PricingContext instance>"),
+    ("fd.RiskModelConfig", "<fd.RiskModelConfig instance>"),
+    ("ul.CalibrationInput", "<ul.CalibrationInput instance>"),
+    ("gp.StochasticProcess", "<gp.StochasticProcess instance>"),
+    ("nb.FXSpotData", "<nb.FXSpotData instance>"),
+    ("td.FundingCurve", "<td.FundingCurve instance>"),
+    ("rk.CorrelationMatrix", "<rk.CorrelationMatrix instance>"),
+    ("by.MarketRegimes", "<by.MarketRegimes instance>"),
+    ("js.AuditTrail", "<js.AuditTrail instance>"),
+    ("cl.CreditCurve", "<cl.CreditCurve instance>"),
+    ("op.ModelParameters", "<op.ModelParameters instance>"),
+    ("ia.StressScenarioSet", "<ia.StressScenarioSet instance>"),
+    ("eh.AggregationContext", "<eh.AggregationContext instance>"),
+    ("vt.VarResults", "<vt.VarResults instance>"),
+    ("wk.SensitivityMap", "<wk.SensitivityMap instance>"),
+    ("zf.TradeLifecycleEvent", "<zf.TradeLifecycleEvent instance>"),
+    ("du.MarginRequirement", "<du.MarginRequirement instance>"),
+    ("sk.PnLSeries", "<sk.PnLSeries instance>"),
+    ("bo.TimeSeriesSet", "<bo.TimeSeriesSet instance>"),
+    ("pe.PricingKernel", "<pe.PricingKernel instance>"),
+    ("yd.AssetUniverse", "<yd.AssetUniverse instance>"),
+    ("hg.CollateralSet", "<hg.CollateralSet instance>"),
+    ("km.DefaultProbabilities", "<km.DefaultProbabilities instance>"),
+    ("rf.MacroFactorData", "<rf.MacroFactorData instance>"),
+    ("as.TermStructureSet", "<as.TermStructureSet instance>"),
+    ("jj.MarketShockGrid", "<jj.MarketShockGrid instance>"),
+    ("cx.StressProjection", "<cx.StressProjection instance>"),
+    ("nv.CptyRiskProfile", "<nv.CptyRiskProfile instance>"),
+    ("tb.ValuationReport", "<tb.ValuationReport instance>"),
+    ("qd.TradeSnapshot", "<qd.TradeSnapshot instance>"),
+    ("xi.ModelVersionInfo", "<xi.ModelVersionInfo instance>"),
+    ("fm.RiskAttributionSet", "<fm.RiskAttributionSet instance>"),
+    ("zl.SimulationConfig", "<zl.SimulationConfig instance>")
+]
+
 
 # Global Faker instance
 fake = Faker()
@@ -123,18 +178,16 @@ class Variant:
     @classmethod
     def random_vertex_value(cls) -> "Variant":
         uid = token_hex(11) # 11 bytes -> 22 hex chars
-        function = random.choice(vertex_functions)
-        type = function[0]
-        to_string = f"{function[1]}"
+        (type, to_string) = random.choice(vertex_values)
         return cls(uid=uid, type=type, size=random.randint(100, 100_000), to_string=to_string)
     
     @classmethod
     def random_edge_value(cls) -> "Variant":
         uid = token_hex(11) # 11 bytes -> 22 hex chars
-        function = random.choice(vertex_functions)
-        type = function[0]
-        to_string = f"{function[1]}"
-        return cls(uid=uid, type=type, size=random.randint(1024, 104_857_600), to_string=to_string, serialization_duration=random.randint(1_000, 1_000_000))
+        (type, to_string) = random.choice(edge_values)
+        size=random.randint(1024, 104_857_600)
+        serialization_duration=random.randint(1_000, 1_000_000)
+        return cls(uid=uid, type=type, size=size, to_string=to_string, serialization_duration=serialization_duration)
 
 @dataclass
 class GraphKey:
@@ -162,11 +215,11 @@ class GraphVertex:
     is_remoted: bool = False
     inputs: List[Tuple[int, int]] = []  # List of (predecessor_vertex_id, predecessor_output_index)
 
-    def __post_init__(self):
-        if self.inputs is None:
-            self.inputs = []
-        if self.vertex_type is None:
-            self.vertex_type = {}
+    @classmethod
+    def create(cls, vertex_id:int) -> "GraphVertex":
+        value = Variant.random_vertex_value()
+        is_remoted = value.type in [t for (t, _) in remoted_vertices]
+        return cls(vertex_id=vertex_id, value=value, is_remoted=is_remoted)
 
 @dataclass
 class GraphEdge:
@@ -190,7 +243,7 @@ class MockGraphEventGenerator:
     
     def generate_timestamp(self) -> int:
         """Generate incrementing microsecond timestamp"""
-        self.current_timestamp += random.randint(1_000, 10_000)  # Increment by 1-10 ms
+        self.current_timestamp += random.randint(10_000, 1_000_000)  # Increment by 10 ms - 1 s
         return self.current_timestamp
 
     def generate_uuid(self) -> str:
@@ -203,60 +256,6 @@ class MockGraphEventGenerator:
             "timestamp": timestamp,
             "graph_key": asdict(graph_key),
             "vertex_key": asdict(VertexKey(vertex_id))
-        }
-
-    def generate_payload_type(self, type_name: str, namespace: str = "test") -> Dict[str, str]:
-        return {"name": type_name, "namespace": namespace}
-    
-    def generate_payload_value(self, payload_type: Dict[str, str]) -> Dict[str, Any]:
-        return {
-            "uid": None,
-            "payloadType": payload_type,
-            "class": None,
-            "binary": None,
-            "size": None,
-            "uidCalculationDuration": None,
-            "serializationDuration": None,
-            "variant": {
-                "type": "HANDLE"
-            },
-            "toString": self.fake.text(max_nb_chars=20) #  TODO: use predefined string for the toString values
-        }
-    
-    def generate_vertex_type(self, payload_type: Dict[str, str]) -> Dict[str, Any]:
-        """Each vertex and edge encapsulate an instance of a variant type and this method generates the variant type details"""
-        return {
-            # SHA-256 hash of the serialized instance of this variant type
-            "uid": None,
-            "type": payload_type,
-            "class": None,  # TODO: get random class name from predefined list
-            "size": None,  # TODO: generate random size
-            
-            "uid_generation_duration": None,
-            # time taken to serialize instance of this variant type
-            "serialization_duration": None,
-            "variant": {
-                "type": "HANDLE"
-            },
-            "toString": self.fake.text(max_nb_chars=20) #  TODO: use predefined string for the toString values
-        }
-    
-    def generate_edge_type(self, payload_type: Dict[str, str]) -> Dict[str, Any]:
-        """Each vertex and edge encapsulate an instance of a variant type and this method generates the variant type details"""
-        return {
-            # SHA-256 hash of the serialized instance of this variant type
-            "uid": None,
-            "type": payload_type,
-            "class": None,  # TODO: get random class name from predefined list
-            "size": None,  # TODO: generate random size
-            
-            "uid_generation_duration": None,
-            # time taken to serialize instance of this variant type
-            "serialization_duration": None,
-            "variant": {
-                "type": "HANDLE"
-            },
-            "toString": self.fake.text(max_nb_chars=20) #  TODO: use predefined string for the toString values
         }
     
     def emit_graph_accepted(self, graph_key: GraphKey) -> Dict[str, Any]:
