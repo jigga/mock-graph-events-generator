@@ -318,6 +318,64 @@ class MockGraphEventGenerator:
             }
         }
     
+    def emit_vertex_serialization_accepted(self, graph_key: GraphKey, vertex: GraphVertex) -> Tuple[Dict[str, Any], str]:
+        """Emit VERTEX_SERIALIZATION_ACCEPTED event"""
+        timestamp = self.generate_timestamp()
+        correlation_id = self.generate_uuid()
+
+        return {
+            "type": "VERTEX_SERIALIZATION_ACCEPTED",
+            "event": {
+                "key": self.create_base_key(graph_key, vertex.vertex_id, timestamp),
+                "correlation_key": {
+                    "correlation_id": correlation_id
+                }
+            }
+        }, correlation_id
+
+    def emit_vertex_serialization_completed(self, graph_key: GraphKey, vertex: GraphVertex, correlation_id: str) -> Dict[str, Any]:
+        """Emit VERTEX_SERIALIZATION_COMPLETED event"""
+        timestamp = self.generate_timestamp()
+
+        return {
+            "type": "VERTEX_SERIALIZATION_COMPLETED",
+            "event": {
+                "key": self.create_base_key(graph_key, vertex.vertex_id, timestamp),
+                "value": asdict(vertex.value),
+                "correlation_key": {
+                    "correlation_id": correlation_id
+                }
+            }
+        }
+
+    def emit_edge_serialization_accepted(self, graph_key: GraphKey, vertex_id: int, input_index: int, predecessor_vertex_id: int, predecessor_output_index: int) -> Tuple[Dict[str, Any], str]:
+        """Emit EDGE_SERIALIZATION_ACCEPTED event"""
+        timestamp = self.generate_timestamp()
+        correlation_id = self.generate_uuid()
+        key = self.create_base_key(graph_key, vertex_id, timestamp)
+        key.update({
+            "index": input_index,
+            "predecessor_key": {
+                "vertex_id": predecessor_vertex_id,
+                "index": predecessor_output_index
+            }
+        })
+        return { "type": "EDGE_SERIALIZATION_ACCEPTED", "event": { "key": key, "correlation_key": { "correlation_id": correlation_id } } }, correlation_id
+
+    def emit_edge_serialization_completed(self, graph_key: GraphKey, vertex_id: int, input_index: int, predecessor_vertex_id: int, predecessor_output_index: int, correlation_id: str) -> Dict[str, Any]:
+        """Emit EDGE_SERIALIZATION_COMPLETED event"""
+        timestamp = self.generate_timestamp()
+        key = self.create_base_key(graph_key, vertex_id, timestamp)
+        key.update({
+            "index": input_index,
+            "predecessor_key": {
+                "vertex_id": predecessor_vertex_id,
+                "index": predecessor_output_index
+            }
+        })
+        payload_value = asdict(Variant.random_edge_value())
+        return { "type": "EDGE_SERIALIZATION_COMPLETED", "event": { "key": key, "value": payload_value, "correlation_key": { "correlation_id": correlation_id } } }
+
     def generate_mock_graph_execution(self, num_vertices: int = 5) -> List[Dict[str, Any]]:
         """Generate a mock graph execution with events"""
         graph_key = GraphKey.random()
@@ -341,6 +399,13 @@ class MockGraphEventGenerator:
             vertex.inputs = inputs
             vertices.append(vertex)
         
+        # Find which vertices have remote successors
+        is_predecessor_to_remoted = {i: False for i in range(num_vertices)}
+        for vertex in vertices:
+            if vertex.is_remoted:
+                for pred_id, _ in vertex.inputs:
+                    is_predecessor_to_remoted[pred_id] = True
+
         for vertex in vertices:
             # Emit VERTEX_ACCEPTED
             events.append(self.emit_vertex_accepted(graph_key, vertex))
@@ -348,9 +413,14 @@ class MockGraphEventGenerator:
             for input_index, (pred_vertex_id, pred_output_index) in enumerate(vertex.inputs):
                 # Emit EDGE_ACCEPTED
                 events.append(self.emit_edge_accepted(graph_key, vertex.vertex_id, input_index, pred_vertex_id, pred_output_index))
-                
-                # Emit EDGE_CALCULATED
-                events.append(self.emit_edge_calculated(graph_key, vertex.vertex_id, input_index, pred_vertex_id, pred_output_index))
+
+                if vertex.is_remoted:
+                    # Emit edge serialization events if the current vertex is remote
+                    edge_ser_accepted_event, edge_ser_corr_id = self.emit_edge_serialization_accepted(graph_key, vertex.vertex_id, input_index, pred_vertex_id, pred_output_index)
+                    events.append(edge_ser_accepted_event)
+                    events.append(self.emit_edge_serialization_completed(graph_key, vertex.vertex_id, input_index, pred_vertex_id, pred_output_index, edge_ser_corr_id))
+                else:
+                    events.append(self.emit_edge_calculated(graph_key, vertex.vertex_id, input_index, pred_vertex_id, pred_output_index))
             
             # Emit VERTEX_SCHEDULED
             events.append(self.emit_vertex_scheduled(graph_key, vertex))
@@ -381,6 +451,12 @@ class MockGraphEventGenerator:
             
             # Emit VERTEX_CALCULATED
             events.append(self.emit_vertex_calculated(graph_key, vertex, correlation_id))
+
+            # If this vertex is a predecessor to a remoted vertex, its result needs to be serialized.
+            if is_predecessor_to_remoted[vertex.vertex_id]:
+                vertex_ser_accepted_event, vertex_ser_corr_id = self.emit_vertex_serialization_accepted(graph_key, vertex)
+                events.append(vertex_ser_accepted_event)
+                events.append(self.emit_vertex_serialization_completed(graph_key, vertex, vertex_ser_corr_id))
         
         # Emit GRAPH_COMPLETED
         events.append(self.emit_graph_completed(graph_key))
