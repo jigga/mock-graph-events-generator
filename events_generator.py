@@ -2,6 +2,7 @@
 
 import json
 import uuid
+import csv
 import random
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional, Tuple
@@ -9,159 +10,24 @@ from dataclasses import asdict, dataclass, field
 from collections import defaultdict
 from faker import Faker
 from secrets import token_hex
+import os
 
-vertex_values: List[Tuple[str, str]] = [
-    ("ab.mean", "ab.mean calculates the average value across a dataset."),
-    ("xy.median", "xy.median returns the middle value in a sorted numeric list."),
-    ("qp.variance", "qp.variance measures how far values spread from the mean."),
-    ("rt.stddev", "rt.stddev computes the standard deviation of numeric data."),
-    ("kl.percentile", "kl.percentile retrieves the value at a given percentile rank."),
-    ("mv.covariance", "mv.covariance calculates how two variables change together."),
-    ("fd.correlation", "fd.correlation computes correlation strength between variables."),
-    ("sn.regression", "sn.regression fits a predictive model to input data."),
-    ("tj.quantile", "tj.quantile extracts a specific quantile from a dataset."),
-    ("uv.autocorrelation", "uv.autocorrelation measures correlation of a signal with itself over time."),
-    ("wx.normalization", "wx.normalization rescales numeric data to a standard range."),
-    ("ce.smoothing", "ce.smoothing applies a smoothing filter to reduce noise."),
-    ("hn.derivative", "hn.derivative estimates the rate of change in a sequence."),
-    ("ps.integral", "ps.integral approximates the area under a curve."),
-    ("gy.forecast", "gy.forecast predicts future values using historical trends."),
-    ("zb.clustering", "zb.clustering groups similar data points into clusters."),
-    ("lk.classification", "lk.classification assigns items to predefined categories."),
-    ("op.tokenization", "op.tokenization splits text into tokens or meaningful units."),
-    ("mq.vectorization", "mq.vectorization converts items into numerical vectors."),
-    ("nr.embedding", "nr.embedding produces dense representations of entities."),
-    ("vf.anomaly", "vf.anomaly detects outlier or abnormal data patterns."),
-    ("du.segmentation", "du.segmentation partitions data into logical segments."),
-    ("ke.transformation", "ke.transformation applies linear or nonlinear transformations."),
-    ("ri.scaling", "ri.scaling rescales features according to provided factors."),
-    ("zo.centering", "zo.centering shifts data so that its mean becomes zero."),
-    ("tp.resampling", "tp.resampling generates a new sample distribution."),
-    ("qs.interpolation", "qs.interpolation estimates missing values between data points."),
-    ("fj.decimation", "fj.decimation reduces sample rate by a fixed factor."),
-    ("aw.filtering", "aw.filtering removes unwanted components from signals."),
-    ("ic.denoise", "ic.denoise reduces noise using statistical heuristics."),
-    ("bd.decomposition", "bd.decomposition breaks a signal into component parts."),
-    ("uj.factorization", "uj.factorization decomposes matrices into multiplicative factors."),
-    ("eg.rotation", "eg.rotation rotates vectors or matrices in n-dimensional space."),
-    ("hy.translation", "hy.translation shifts values by a constant amount."),
-    ("cw.windowing", "cw.windowing applies a window function to a signal segment."),
-    ("mk.differencing", "mk.differencing computes differences to improve stationarity."),
-    ("sl.stationarity", "sl.stationarity evaluates whether a time series is stationary."),
-    ("pn.gradient", "pn.gradient computes gradient values across a function."),
-    ("ro.hessian", "ro.hessian calculates second-order partial derivatives."),
-    ("yl.curvefit", "yl.curvefit fits a custom curve to observed data."),
-    ("jx.approximation", "jx.approximation approximates complex functions numerically."),
-    ("vd.bias", "vd.bias computes the systematic offset of a model's predictions."),
-    ("sf.kurtosis", "sf.kurtosis measures tail extremity of a distribution."),
-    ("em.skewness", "em.skewness measures asymmetry of a distribution."),
-    ("ag.entropy", "ag.entropy quantifies data unpredictability."),
-    ("bh.contrast", "bh.contrast enhances or measures contrast in images or signals."),
-    ("ci.sharpen", "ci.sharpen enhances edges or details in data."),
-    ("dj.blurring", "dj.blurring reduces detail by convolving with a blur kernel."),
-    ("eq.histogram", "eq.histogram computes frequency distribution over value bins."),
-    ("fw.binomial", "fw.binomial generates binomial probability distributions."),
-    ("gx.poisson", "gx.poisson evaluates Poisson distribution probabilities."),
-    ("hv.gaussian", "hv.gaussian produces Gaussian distribution values."),
-    ("ij.uniform", "ij.uniform generates uniform distribution samples."),
-    ("jk.convergence", "jk.convergence checks whether an algorithm has converged."),
-    ("kl.divergence", "kl.divergence computes divergence between two distributions."),
-    ("lm.optimization", "lm.optimization finds optimal parameters for a function."),
-    ("mn.minimization", "mn.minimization solves for the minimum of a function."),
-    ("no.maximization", "no.maximization solves for the maximum of a function."),
-    ("op.search", "op.search performs heuristic or structured search operations."),
-    ("pq.aggregate", "pq.aggregate combines multiple values using a rule."),
-    ("qr.combine", "qr.combine merges datasets or sequences intelligently."),
-    ("rs.segment", "rs.segment divides data into logical segments."),
-    ("st.cluster", "st.cluster creates groups based on statistical similarity."),
-    ("tu.label", "tu.label assigns labels to data based on rules."),
-    ("uv.project", "uv.project projects data into a different subspace."),
-    ("vw.reduce", "vw.reduce compresses data dimensionality or complexity."),
-    ("wx.expand", "wx.expand increases dimensionality with derived features."),
-    ("xy.embed", "xy.embed maps items into a lower-dimensional embedding space."),
-    ("yz.encode", "yz.encode converts structures into encoded representations."),
-    ("za.decode", "za.decode reconstructs data from encoded representations."),
-    ("ab.balance", "ab.balance balances class or value distributions."),
-    ("bc.weight", "bc.weight applies weights to samples or features."),
-    ("cd.score", "cd.score computes evaluation metrics for models."),
-    ("de.rank", "de.rank assigns rank ordering to values."),
-    ("ef.normalize", "ef.normalize scales values to unit magnitude."),
-    ("fg.standardize", "fg.standardize converts data to zero mean and unit variance."),
-    ("gh.summarize", "gh.summarize produces statistical summaries of datasets."),
-    ("hi.evaluate", "hi.evaluate computes model performance metrics."),
-    ("ij.validate", "ij.validate validates a model using test or split data."),
-    ("jk.calibrate", "jk.calibrate adjusts a model to improve accuracy."),
-    ("kl.measure", "kl.measure calculates specific analytical measurements."),
-    ("lm.sample", "lm.sample draws samples from a dataset or distribution."),
-    ("mn.bootstrap", "mn.bootstrap generates bootstrap sample sets."),
-    ("no.shuffle", "no.shuffle randomly shuffles the ordering of items."),
-    ("op.partition", "op.partition splits data into defined partitions."),
-    ("pq.align", "pq.align aligns two datasets or sequences for comparison."),
-    ("qr.match", "qr.match finds best matches between datasets or patterns."),
-    ("rs.extract", "rs.extract pulls relevant features or components from data."),
-    ("st.compute", "st.compute performs a general analytical computation."),
-    ("tu.simulate", "tu.simulate simulates system behavior using a model."),
-    ("uv.model", "uv.model constructs a statistical or predictive model."),
-    ("vw.analyze", "vw.analyze analyzes datasets to extract insights."),
-    ("wx.optimize", "wx.optimize improves function performance or parameters."),
-    ("xy.interpolate", "xy.interpolate fills in missing values using interpolation."),
-    ("yz.transform", "yz.transform applies one or more transformations."),
-    ("za.integrate", "za.integrate numerically computes an integral over data.")
-]
+def load_values_from_csv(file_path: str) -> List[Tuple[str, str]]:
+    """Loads values from a CSV file."""
+    values = []
+    with open(file_path, 'r', newline='', encoding='utf-8') as f:
+        reader = csv.reader(f)
+        for row in reader:
+            values.append(tuple(row))
+    return values
+
+script_dir = os.path.dirname(__file__)
+vertex_values_csv_path = os.path.join(script_dir, 'vertex_values.csv')
+vertex_values = load_values_from_csv(vertex_values_csv_path)
 remoted_vertices: List[Tuple[str, str]] = random.sample(vertex_values, k=33)
 
-edge_values: List[Tuple[str, str]] = [
-    ("qx.MarketData", "<qx.MarketData instance>"),
-    ("lv.ExposureSet", "<lv.ExposureSet instance>"),
-    ("dr.RiskFactors", "<dr.RiskFactors instance>"),
-    ("pm.ScenarioConfig", "<pm.ScenarioConfig instance>"),
-    ("ht.PortfolioState", "<ht.PortfolioState instance>"),
-    ("cs.YieldCurve", "<cs.YieldCurve instance>"),
-    ("zn.VolSurface", "<zn.VolSurface instance>"),
-    ("rf.StressDefinition", "<rf.StressDefinition instance>"),
-    ("uk.CreditSpreadData", "<uk.CreditSpreadData instance>"),
-    ("bj.LiquidityMetrics", "<bj.LiquidityMetrics instance>"),
-    ("wa.TradeSet", "<wa.TradeSet instance>"),
-    ("mn.PositionLimits", "<mn.PositionLimits instance>"),
-    ("ty.BacktestParameters", "<ty.BacktestParameters instance>"),
-    ("so.OptimizationConfig", "<so.OptimizationConfig instance>"),
-    ("ae.ForwardCurve", "<ae.ForwardCurve instance>"),
-    ("qh.HistoricalPrices", "<qh.HistoricalPrices instance>"),
-    ("mv.GreekResults", "<mv.GreekResults instance>"),
-    ("xr.PricingContext", "<xr.PricingContext instance>"),
-    ("fd.RiskModelConfig", "<fd.RiskModelConfig instance>"),
-    ("ul.CalibrationInput", "<ul.CalibrationInput instance>"),
-    ("gp.StochasticProcess", "<gp.StochasticProcess instance>"),
-    ("nb.FXSpotData", "<nb.FXSpotData instance>"),
-    ("td.FundingCurve", "<td.FundingCurve instance>"),
-    ("rk.CorrelationMatrix", "<rk.CorrelationMatrix instance>"),
-    ("by.MarketRegimes", "<by.MarketRegimes instance>"),
-    ("js.AuditTrail", "<js.AuditTrail instance>"),
-    ("cl.CreditCurve", "<cl.CreditCurve instance>"),
-    ("op.ModelParameters", "<op.ModelParameters instance>"),
-    ("ia.StressScenarioSet", "<ia.StressScenarioSet instance>"),
-    ("eh.AggregationContext", "<eh.AggregationContext instance>"),
-    ("vt.VarResults", "<vt.VarResults instance>"),
-    ("wk.SensitivityMap", "<wk.SensitivityMap instance>"),
-    ("zf.TradeLifecycleEvent", "<zf.TradeLifecycleEvent instance>"),
-    ("du.MarginRequirement", "<du.MarginRequirement instance>"),
-    ("sk.PnLSeries", "<sk.PnLSeries instance>"),
-    ("bo.TimeSeriesSet", "<bo.TimeSeriesSet instance>"),
-    ("pe.PricingKernel", "<pe.PricingKernel instance>"),
-    ("yd.AssetUniverse", "<yd.AssetUniverse instance>"),
-    ("hg.CollateralSet", "<hg.CollateralSet instance>"),
-    ("km.DefaultProbabilities", "<km.DefaultProbabilities instance>"),
-    ("rf.MacroFactorData", "<rf.MacroFactorData instance>"),
-    ("as.TermStructureSet", "<as.TermStructureSet instance>"),
-    ("jj.MarketShockGrid", "<jj.MarketShockGrid instance>"),
-    ("cx.StressProjection", "<cx.StressProjection instance>"),
-    ("nv.CptyRiskProfile", "<nv.CptyRiskProfile instance>"),
-    ("tb.ValuationReport", "<tb.ValuationReport instance>"),
-    ("qd.TradeSnapshot", "<qd.TradeSnapshot instance>"),
-    ("xi.ModelVersionInfo", "<xi.ModelVersionInfo instance>"),
-    ("fm.RiskAttributionSet", "<fm.RiskAttributionSet instance>"),
-    ("zl.SimulationConfig", "<zl.SimulationConfig instance>")
-]
+edge_values_csv_path = os.path.join(script_dir, 'edge_values.csv')
+edge_values = load_values_from_csv(edge_values_csv_path)
 
 
 # Global Faker instance
