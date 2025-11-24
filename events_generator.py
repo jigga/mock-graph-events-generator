@@ -1,5 +1,6 @@
 # Generates mock event data from DAG graph execution for testing purposes
 
+import argparse
 import json
 import uuid
 import csv
@@ -464,12 +465,26 @@ class MockGraphEventGenerator:
         return events
 
 def main():
+    parser = argparse.ArgumentParser(description="Generate mock graph execution events.")
+    parser.add_argument('--num-vertices', type=int, help='Number of vertices in the graph.')
+    args = parser.parse_args()
+
+    if args.num_vertices:
+        num_vertices = args.num_vertices
+    else:
+        num_vertices = random.randint(100, 10000)
+
     generator = MockGraphEventGenerator()
-    events = generator.generate_mock_graph_execution(num_vertices=10)
-    
-    # Print events as JSON
-    for event in events:
-        print(json.dumps(event))
+    events = generator.generate_mock_graph_execution(num_vertices=num_vertices)
+
+    timestamp_suffix = datetime.now().strftime('%Y%m%d_%H%M%S')
+    output_filename = f"graph_events_{timestamp_suffix}.ndjson"
+
+    with open(output_filename, 'w') as f:
+        for event in events:
+            f.write(json.dumps(event) + '\n')
+
+    print(f"Generated {len(events)} events for a graph with {num_vertices} vertices into {output_filename}")
 
 if __name__ == "__main__":
     main()
