@@ -5,7 +5,7 @@ import uuid
 import random
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional, Tuple
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from collections import defaultdict
 from faker import Faker
 from secrets import token_hex
@@ -213,7 +213,7 @@ class GraphVertex:
     vertex_id: int
     value: Variant = None
     is_remoted: bool = False
-    inputs: List[Tuple[int, int]] = []  # List of (predecessor_vertex_id, predecessor_output_index)
+    inputs: List[Tuple[int, int]] = field(default_factory=list)  # List of (predecessor_vertex_id, predecessor_output_index)
 
     @classmethod
     def create(cls, vertex_id:int) -> "GraphVertex":
@@ -308,7 +308,7 @@ class MockGraphEventGenerator:
             "type": "VERTEX_ACCEPTED",
             "event": {
                 "key": self.create_base_key(graph_key, vertex.vertex_id, timestamp),
-                "type": vertex.vertex_type,
+                "type": vertex.value.type,
                 "remoted": vertex.is_remoted,
                 "remoted_by": "CLIENT_SUPPLIED_HOOK" if vertex.is_remoted else None,
                 "terminal_vertex": vertex.vertex_id == 0
@@ -345,7 +345,7 @@ class MockGraphEventGenerator:
                 "index": predecessor_output_index
             }
         })
-        payload_value = self.generate_edge_type({})
+        payload_value = asdict(Variant.random_edge_value())
         return {
             "type": "EDGE_CALCULATED",
             "event": {
@@ -464,39 +464,70 @@ class MockGraphEventGenerator:
         
         # Create graph topology
         for i in range(num_vertices):
-            payload_type = self.generate_payload_type(f"Type{i}")
-            vertex_type = self.generate_vertex_type(payload_type)
-            vertex = GraphVertex(vertex_id=i, vertex_type=vertex_type, is_remoted=(i % 2 == 0))
+            vertex = GraphVertex.create(vertex_id=i)
             inputs: List[Tuple[int, int]] = []
             if i > 0:
                 num_inputs = random.randint(1, min(3, i))
                 for _ in range(num_inputs):
                     pred_vertex = random.choice(vertices[:i])
-                    inputs.append((pred_vertex.vertex_id, 0))  # assuming single output index 0
+                    inputs.append((pred_vertex.vertex_id, 0))
             
-            vertices.append(GraphVertex(vertex_id=i, vertex_type=vertex_type, inputs=inputs))
-            
+            vertex.inputs = inputs
+            vertices.append(vertex)
+        
+        for vertex in vertices:
             # Emit VERTEX_ACCEPTED
             events.append(self.emit_vertex_accepted(graph_key, vertex))
+            
+            for input_index, (pred_vertex_id, pred_output_index) in enumerate(vertex.inputs):
+                # Emit EDGE_ACCEPTED
+                events.append(self.emit_edge_accepted(graph_key, vertex.vertex_id, input_index, pred_vertex_id, pred_output_index))
+                
+                # Emit EDGE_CALCULATED
+                events.append(self.emit_edge_calculated(graph_key, vertex.vertex_id, input_index, pred_vertex_id, pred_output_index))
             
             # Emit VERTEX_SCHEDULED
             events.append(self.emit_vertex_scheduled(graph_key, vertex))
             
+            correlation_id = self.generate_uuid()
+
+            # For remoted vertices, we emit the following additional events:
+            # REMOTED_VERTEX_ACCEPTED
+            # EDGE_DESERIALIZATION_ACCEPTED
+            # EDGE_DESERIALIZATION_COMPLETED
             if vertex.is_remoted:
-                correlation_id = self.generate_uuid()
                 # Emit REMOTED_VERTEX_ACCEPTED
                 events.append(self.emit_remoted_vertex_accepted(graph_key, vertex, correlation_id))
                 
-                # Emit VERTEX_INVOKED
-                events.append(self.emit_vertex_invoked(graph_key, vertex, correlation_id))
-                
-                # Emit VERTEX_CALCULATED
-                events.append(self.emit_vertex_calculated(graph_key, vertex, correlation_id))
-            else:
-                # Emit VERTEX_CALCULATED
-                events.append(self.emit_vertex_calculated(graph_key, vertex, "local-correlation-id"))
+                for input_index in range(len(vertex.inputs)):
+                    edge_value = Variant.random_edge_value()
+                    # Emit EDGE_DESERIALIZATION_ACCEPTED
+                    deserialization_accepted_event, edge_correlation_id = self.emit_edge_deserialization_accepted(
+                        graph_key, vertex.vertex_id, input_index, edge_value.size)
+                    events.append(deserialization_accepted_event)
+                    
+                    # Emit EDGE_DESERIALIZATION_COMPLETED
+                    events.append(self.emit_edge_deserialization_completed(
+                        graph_key, vertex.vertex_id, input_index, edge_correlation_id))
+            
+            # Emit VERTEX_INVOKED
+            events.append(self.emit_vertex_invoked(graph_key, vertex, correlation_id))
+            
+            # Emit VERTEX_CALCULATED
+            events.append(self.emit_vertex_calculated(graph_key, vertex, correlation_id))
         
         # Emit GRAPH_COMPLETED
         events.append(self.emit_graph_completed(graph_key))
         
         return events
+
+def main():
+    generator = MockGraphEventGenerator()
+    events = generator.generate_mock_graph_execution(num_vertices=10)
+    
+    # Print events as JSON
+    for event in events:
+        print(json.dumps(event))
+
+if __name__ == "__main__":
+    main()
